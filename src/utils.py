@@ -112,6 +112,7 @@ class WLCB_DB:
         
         # Get current time for event log
         eventtime = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
+        self._created = eventtime
 
         # Create database, establish connection, define cursor
         if not os.path.exists(db_filename):
@@ -198,9 +199,23 @@ class WLCB_DB:
         # Commit datatables
         conn.commit()
 
+        # Update event_log table with database creation
+        self.update_event_log_datatable(self._created, 'created')
+
         # Get details for event log
         eventtime = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
         event = (f'Empty datatables created {eventtime}')
         self.append_event_log(event)
         print(f'{event}\n')
+        return None
+    
+    def update_event_log_datatable(self, time, event_type):
+        '''Append event log datatable'''
+        conn = self._conn
+        cur = self._cur
+
+        cur.execute('''INSERT OR IGNORE INTO event_log (time, event_type) VALUES (?, ?)''', (time, event_type))
+
+        # Commit changes
+        conn.commit()
         return None
