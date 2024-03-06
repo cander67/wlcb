@@ -123,15 +123,22 @@ class WLCB_DB:
         print(f'{event}\n')
 
         # Create event log
+        self._event_log_filename = self._db_name.replace('.sqlite', '_log.txt')
         self.create_event_log(event)
 
         return None
 
     def create_event_log(self, event):
         '''Create event log'''
-        event_log_filename = self._db_name.replace('.sqlite', '_log.txt')
-        self = open(event_log_filename, 'x')
-        self.write(f"{event_log_filename.replace('_log.txt', '')} Event Log\n\n{event}\n\n")
+        name = self._event_log_filename
+        self = open(self._event_log_filename, 'x')
+        self.write(f"{name.replace('_log.txt', '')} Event Log\n\n{event}\n\n")
+        self.close()
+
+    def append_event_log(self, event):
+        '''append event log'''
+        self = open(self._event_log_filename, 'a')
+        self.write(f'{event}\n')
         self.close()
 
     def get_connection(self):
