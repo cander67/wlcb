@@ -84,7 +84,7 @@ class WLCB_DB:
         Args:
             name (str) : database name
         Returns:
-            self (connection to sql database) 
+            None
         '''
 
         # Initialize variables
@@ -124,6 +124,8 @@ class WLCB_DB:
 
         # Create event log
         self.create_event_log(event)
+
+        return None
 
     def create_event_log(self, event):
         '''Create event log'''
