@@ -71,7 +71,6 @@ def get_valid_data_files(folder = "./data"):
                 continue
 
     print(f'\nREAD {file_count} FILES\nVALID LICENSE FILES: {license_file_count}\nVALID SALES FILES: {sales_file_count}\n')
-    
     return self
 
 
@@ -132,9 +131,8 @@ class WLCB_DB:
         # Create event log
         self._event_log_filename = self._db_name.replace('.sqlite', '_log.txt')
         if not os.path.exists(self._event_log_filename):
-            event = (f'{self._event_log_filename} created {eventtime}')
+            event = (f'{self._db_name} created {eventtime}')
             self.create_event_log(event)
-
         return None
 
     def create_event_log(self, event):
@@ -143,12 +141,14 @@ class WLCB_DB:
         self = open(self._event_log_filename, 'x')
         self.write(f"{name.replace('_log.txt', '')} Event Log\n\n{event}\n\n")
         self.close()
+        return None
 
     def append_event_log(self, event):
         '''Append event log'''
         self = open(self._event_log_filename, 'a')
         self.write(f'{event}\n')
         self.close()
+        return None
 
     def get_connection(self):
         '''Return connection'''
@@ -197,3 +197,10 @@ class WLCB_DB:
 
         # Commit datatables
         conn.commit()
+
+        # Get details for event log
+        eventtime = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
+        event = (f'Empty datatables created {eventtime}')
+        self.append_event_log(event)
+        print(f'{event}\n')
+        return None
