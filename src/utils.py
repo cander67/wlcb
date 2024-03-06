@@ -115,16 +115,25 @@ class WLCB_DB:
         eventtime = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
 
         # Create database, establish connection, define cursor
-        self._conn = sqlite3.connect(db_filename)
-        self._cur = self._conn.cursor()
-
+        if not os.path.exists(db_filename):
+            self._conn = sqlite3.connect(db_filename)
+            self._cur = self._conn.cursor()
+            event = (f'{db_filename} created {eventtime}')
+        elif os.path.exists(db_filename):
+            self._conn = sqlite3.connect(db_filename)
+            self._cur = self._conn.cursor()
+            event = (f'{db_filename} connected {eventtime}')
+        else:
+            print(f'ERROR: UNABLE TO CREATE OR CONNECT TO DATABASE: {db_filename}')
+        
         # Confirm database instantiation
-        event = (f'{db_filename} created {eventtime}')
         print(f'{event}\n')
 
         # Create event log
         self._event_log_filename = self._db_name.replace('.sqlite', '_log.txt')
-        self.create_event_log(event)
+        if not os.path.exists(self._event_log_filename):
+            event = (f'{self._event_log_filename} created {eventtime}')
+            self.create_event_log(event)
 
         return None
 
@@ -136,7 +145,7 @@ class WLCB_DB:
         self.close()
 
     def append_event_log(self, event):
-        '''append event log'''
+        '''Append event log'''
         self = open(self._event_log_filename, 'a')
         self.write(f'{event}\n')
         self.close()
@@ -148,3 +157,43 @@ class WLCB_DB:
     def get_cursor(self):
         '''Return cursor'''
         return self._cur
+    
+    def create_datatables(self):
+        '''Create empty datatables'''
+        conn = self._conn
+        cur = self._cur
+
+        # Create empty tables
+        cur.execute('''CREATE TABLE IF NOT EXISTS event_log (id INTEGER PRIMARY KEY, time, event_type)''')
+        cur.execute('''CREATE TABLE IF NOT EXISTS license_types (id INTEGER PRIMARY KEY, license_type TEXT UNIQUE, created, modified)''')
+        cur.execute('''CREATE TABLE IF NOT EXISTS seller_types (id INTEGER PRIMARY KEY, seller_type TEXT UNIQUE, created, modified)''')
+        cur.execute('''CREATE TABLE IF NOT EXISTS names (id INTEGER PRIMARY KEY, name TEXT UNIQUE, created, modified)''')
+        cur.execute('''CREATE TABLE IF NOT EXISTS addresses (id INTEGER PRIMARY KEY, address TEXT UNIQUE, created, modified)''')
+        cur.execute('''CREATE TABLE IF NOT EXISTS cities (id INTEGER PRIMARY KEY, city TEXT UNIQUE, created, modified)''')
+        cur.execute('''CREATE TABLE IF NOT EXISTS states (id INTEGER PRIMARY KEY, state TEXT UNIQUE, created, modified)''')
+        cur.execute('''CREATE TABLE IF NOT EXISTS zipcodes (id INTEGER PRIMARY KEY, zip TEXT UNIQUE, created, modified)''')
+        cur.execute('''CREATE TABLE IF NOT EXISTS month (id INTEGER PRIMARY KEY, month TEXT UNIQUE, created, modified)''')
+        cur.execute('''CREATE TABLE IF NOT EXISTS year (id INTEGER PRIMARY KEY, year INTEGER UNIQUE, created, modified)''')
+        cur.execute('''CREATE TABLE IF NOT EXISTS licenses (id INTEGER PRIMARY KEY, license, 
+                    name_id, address_id, city_id, state_id, zip_id, license_type_id, created, modified, UNIQUE (license, license_type_id))''')
+
+        cur.execute('''CREATE TABLE IF NOT EXISTS beer_sales (id INTEGER PRIMARY KEY, name_id, seller_type_id, month_id INTEGER, 
+                    year_id INTEGER, over_60k_barrels INTEGER, under_60k_barrels INTEGER, total_beer_barrels INTEGER, created, modified,
+                    UNIQUE(name_id, month_id, year_id, over_60k_barrels, under_60k_barrels, total_beer_barrels))''')
+
+        cur.execute('''CREATE TABLE IF NOT EXISTS wine_sales (id INTEGER PRIMARY KEY, name_id, seller_type_id, month_id INTEGER, 
+                    year_id INTEGER, under_14abv INTEGER, over_14abv INTEGER, total_wine_liters INTEGER, created, modified,
+                    UNIQUE(name_id, month_id, year_id, under_14abv, over_14abv, total_wine_liters))''')
+
+        cur.execute('''CREATE TABLE IF NOT EXISTS cider_sales (id INTEGER PRIMARY KEY, name_id, seller_type_id, month_id INTEGER, 
+                    year_id INTEGER, total_cider_liters INTEGER, created, modified,
+                    UNIQUE(name_id, month_id, year_id, total_cider_liters))''')
+
+        cur.execute('''CREATE TABLE IF NOT EXISTS names_licenses_sellers (id INTEGER PRIMARY KEY, name_id, license_id, bev_type,
+                    wa_brew, wa_wine_import, wine_coa, wa_beer_import, beer_rep_coa, wine_rep_coa, wine_ship_cons,
+                    wine_beer_dist, wa_wine, beer_coa, wa_wine_dist, wine_ship_retail, wine_coa_ship_cons, beer_coa_ship_retail,
+                    s_in_state_brew, s_out_state_brew, s_beer_coa, s_in_state_wine, s_out_state_wine, s_wine_coa, created, modified,
+                    UNIQUE(name_id, license_id, bev_type))''')
+
+        # Commit datatables
+        conn.commit()
