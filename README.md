@@ -12,7 +12,7 @@ Local deployment can be accomplished by creating a virtual environment using Pyt
 
 ## Built With
 - Python
-- SQLite3
+- SQLite
 
 ## Contributing
 Contributions and suggestions are welcome and may be submitted by forking this project and submitting a pull request through GitHub.
