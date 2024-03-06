@@ -1,41 +1,29 @@
 # Project Title
-
-Text.
+This project contains a script that creates a SQL database of licensed breweries, wineries, cideries, distilleries, alcohol distributors, and alcohol sales to distributors in Washington State. Source data is publicaly available from the [Washington State Liquor and Cannabis Board](https://lcb.wa.gov/).
 
 ## Getting Started
-
-Text.
+Clone the repository from the terminal using the following command: `git clone https://github.com/cander67/skiforecast.git`
 
 ### Prerequisites
-
-Text.
+Local deployment can be accomplished by creating a virtual environment using Python 3.11 and installing the necessary dependencies as described in the next section.
 
 ### Installing
-
-Text.
-
-## Deployment
-
-Text.
+- Install dependencies from the terminal using the following command: `pip install -r requirements.txt`
 
 ## Built With
-
-Text.
+- Python
+- SQLite3
 
 ## Contributing
-
-Text.
+Contributions and suggestions are welcome and may be submitted by forking this project and submitting a pull request through GitHub.
 
 ## Versioning
-
-Text.
+This project is in development.
 
 ## Authors
-
-Text.
+Written by Cyrus Anderson.
 
 ## License
-
-Text.
+This project is licensed under the MIT License - see the LICENSE file for details.
 
 ## Acknowledements
