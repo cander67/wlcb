@@ -73,3 +73,69 @@ def get_valid_data_files(folder = "./data"):
     print(f'\nREAD {file_count} FILES\nVALID LICENSE FILES: {license_file_count}\nVALID SALES FILES: {sales_file_count}\n')
     
     return self
+
+
+
+class WLCB_DB:
+    '''WLCB Database object'''
+
+    def __init__(self, name):
+        '''Create database and changelog if not exists, connect to database
+        Args:
+            name (str) : database name
+        Returns:
+            self (connection to sql database) 
+        '''
+
+        # Initialize variables
+        name = 'wlcb_db'
+        db_extension = '.sqlite'
+        db_filename = None
+        valid_db_name = False
+        
+        # Set valid database filename
+        while valid_db_name == False:
+            if name == ' ':
+                valid_db_name = True
+                continue
+            if re.search('[^a-zA-Z0-9_]', name):
+                print(f'INVALID DATABASE FILENAME: {name}')
+                user_db_name = None
+                user_db_name = input("ENTER A DATABASE FILENAME, ' ' FOR DEFAULT:")
+                name = user_db_name
+                continue
+            if re.search('[A-Za-z0-9_]', name):
+                db_name = name
+                valid_db_name = True
+        
+        db_filename = db_name + db_extension
+        self._db_name = db_filename
+        
+        # Get current time for event log
+        eventtime = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
+
+        # Create database, establish connection, define cursor
+        self._conn = sqlite3.connect(db_filename)
+        self._cur = self._conn.cursor()
+
+        # Confirm database instantiation
+        event = (f'{db_filename} created {eventtime}')
+        print(f'{event}\n')
+
+        # Create event log
+        self.create_event_log(event)
+
+    def create_event_log(self, event):
+        '''Create event log'''
+        event_log_filename = self._db_name.replace('.sqlite', '_log.txt')
+        self = open(event_log_filename, 'x')
+        self.write(f"{event_log_filename.replace('_log.txt', '')} Event Log\n\n{event}\n\n")
+        self.close()
+
+    def get_connection(self):
+        '''Return connection'''
+        return self._conn
+    
+    def get_cursor(self):
+        '''Return cursor'''
+        return self._cur
