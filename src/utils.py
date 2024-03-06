@@ -1,6 +1,7 @@
 import os
 import re
 import sqlite3
+import time
 from datetime import datetime
 
 def get_valid_data_files(folder = "./data"):
@@ -71,6 +72,185 @@ def get_valid_data_files(folder = "./data"):
                 continue
 
     print(f'\nREAD {file_count} FILES\nVALID LICENSE FILES: {license_file_count}\nVALID SALES FILES: {sales_file_count}\n')
+    
+    return self
+
+def check_row(dict, line, key):
+    '''
+    Check for specific text from a list while parsing sales data
+    Args:
+        dict (dict, {keep OR ignore : [lst of regex]}) : list of text patterns and regex to keep or ignore
+        line (str): row to search
+    Returns:
+        self (bool) : True or False, default = False
+    '''
+
+    self = False
+    
+    lst = dict[key]
+        
+    for i in lst:
+        result = re.search(i, line)
+        if result != None:
+            self = True
+            break
+        else:
+            self = False
+    
+    return self
+
+def parse_license_data(line):
+    '''Parse license data
+    Args:
+        line (str) : current line of current file
+    Returns:
+        self (tuple) : (license, name, address, city, state, zc) -> tuple of license data
+    '''
+
+    self = ()
+
+    # Parse normal license data
+    if re.search('^.[0-9]', line):
+        entries = line.split(',')
+        license = entries[0]
+        name = entries[1]
+        address = entries[2]
+        city = entries[3]
+        state = entries[4]
+        zc = entries[5]
+
+        # Parsing routine for abnormal license data
+        if len(entries) != 6:
+            if re.search('[""]', line):
+                license = re.findall('^([0-9]*),?', line)
+                license = license[0]
+                name = re.findall('^[0-9]*,([A-Z0-9 .&]*),?', line)
+                name = name[0]
+                    
+                # Clean lines with extra commas, no whitespace, etc
+                if re.findall(',"(.*)",.+,.+,.+', line):
+                    address = re.findall(',"(.*)",', line)
+                    address = address[0]
+                    address = re.sub(r',(\S)', r', \1', address, count = 0)
+                    city = re.findall('^[0-9]*,.*,".*",([A-Z ]*),.+,.+', line)
+                    city = city[0]
+                else:
+                    address = re.findall('^[0-9]*,.*,(.*),".*",.+,.+', line)
+                    address = address[0]
+                    city = re.findall('^[0-9]*,.*,.*,"([A-Z, ]*)",.+,.+', line)
+                    city = city[0]
+                    city = re.sub(',', '', city)
+                state = re.findall('^[0-9]*,.*,.*,([A-Z]*),[0-9]*$', line)
+                state = state[0]
+                zc = re.findall('^[0-9]*,.*,.*,.*,([0-9]+)$', line)
+                zc = zc[0]
+
+    self = (license, name, address, city, state, zc)
+
+    return self
+
+def parse_sales_data(fhand, beer, wine, line_count, sales_count, seller_type, seller, regex, error_count):
+    '''Parse sales data
+    Args:
+        line (str) : current line of current file
+    Returns:
+        self (list) : [(name, seller_type, values, sales_count, line_count, error_count)] -> list of tuples of sales data
+        '''
+
+    self = []
+
+    # Parse beer sales data
+    if beer == True:
+        values = [] # Container for sales values
+        for line in fhand:
+            line_count += 1
+            line = line.strip()
+            if len(line) < 1: continue
+            if check_row(regex, line, 'keep') == True:
+                if re.search('^In', line):
+                    seller = line
+                    slice = 3
+                if re.search('^Out', line):
+                    seller = line
+                    slice = 4
+                if re.search('^Authorized', line):
+                    seller = 'Beer ' + line
+                    slice = 4
+                if seller != None:
+                    seller = seller.split(' ')
+                    seller = seller[:slice]
+                    seller_type = ' '.join(seller)
+                    continue
+                else: 
+                    print('INVALID SELLER_TYPE:', line)
+                    error_count += 1
+                    continue
+            if check_row(regex, line, 'ignore') == True: continue
+            if re.search('[A-Z]', line):
+                name = line
+                continue
+            if re.search('[.][0-9][0-9]$', line) and name != None:
+                value = line
+                value = float(value.replace(',', ''))
+                values.append(value)
+            if name != None and len(values) == 3:
+                sales_count += 1
+                sale = (name, seller_type, values, sales_count, line_count, error_count)
+                self.append(sale)
+                name = None # Reset loop variables for next iteration
+                values = []
+            if re.search('[.][0-9][0-9]$', line) and name == None: continue
+            elif name == None:
+                print('PARSE ERROR:', line)
+                error_count += 1
+
+        print(f'SALES COUNT: {sales_count}\n')
+
+    # Parse wine sales data
+    if wine == True:
+        values = [] # Container for sales values
+        for line in fhand:
+            line_count += 1
+            line = line.strip()
+            if len(line) < 1: continue
+            if check_row(regex, line, 'keep') == True:
+                if re.search('^In', line):
+                    seller = line
+                    slice = 3
+                if re.search('^Out', line):
+                    seller = line
+                    slice = 4
+                if re.search('^Authorized', line):
+                    seller = 'Wine ' + line
+                    slice = 4
+                if seller != None:
+                    seller = seller.split(' ')
+                    seller = seller[:slice]
+                    seller_type = ' '.join(seller)
+                else: 
+                    print('SELLER_TYPE ERROR:', line)
+                    error_count += 1
+            if check_row(regex, line, 'ignore') == True: continue
+            if re.search('[A-Z]', line):
+                name = line
+                continue
+            if re.search('[.][0-9][0-9]$', line) and name != None:
+                value = line
+                value = float(value.replace(',', ''))
+                values.append(value)
+            if name != None and len(values) == 4:
+                sales_count += 1
+                sale = (name, seller_type, values, sales_count, line_count, error_count)
+                self.append(sale)
+                name = None # Reset loop variables for next iteration
+                values = []
+            if re.search('[.][0-9][0-9]$', line) and name == None: continue
+            elif name == None:
+                print('PARSE ERROR:', line)
+                error_count += 1
+
+        print(f'SALES COUNT: {sales_count}\n')
+
     return self
 
 
@@ -118,11 +298,11 @@ class WLCB_DB:
         if not os.path.exists(db_filename):
             self._conn = sqlite3.connect(db_filename)
             self._cur = self._conn.cursor()
-            event = (f'{db_filename} created {eventtime}')
+            event = (f'Created {db_filename}, {eventtime}')
         elif os.path.exists(db_filename):
             self._conn = sqlite3.connect(db_filename)
             self._cur = self._conn.cursor()
-            event = (f'{db_filename} connected {eventtime}')
+            event = (f'Connected {db_filename}, {eventtime}')
         else:
             print(f'ERROR: UNABLE TO CREATE OR CONNECT TO DATABASE: {db_filename}')
         
@@ -132,31 +312,47 @@ class WLCB_DB:
         # Create event log
         self._event_log_filename = self._db_name.replace('.sqlite', '_log.txt')
         if not os.path.exists(self._event_log_filename):
-            event = (f'{self._db_name} created {eventtime}')
+            time.sleep(1)
+            event = (f'Created {self._db_name}, {eventtime}')
             self.create_event_log(event)
+        
         return None
 
     def create_event_log(self, event):
-        '''Create event log'''
+        '''Create event log
+        Args:
+            event (str) : event description
+        Returns:
+            None
+        '''
         name = self._event_log_filename
         self = open(self._event_log_filename, 'x')
-        self.write(f"{name.replace('_log.txt', '')} Event Log\n\n{event}\n\n")
+        self.write(f"{name.replace('_log.txt', '')} Event Log\n\n{event}\n")
         self.close()
+        
         return None
 
     def append_event_log(self, event):
-        '''Append event log'''
+        '''Append event log
+        Args:
+            event (str) : event description
+        Returns:
+            None
+        '''
         self = open(self._event_log_filename, 'a')
         self.write(f'{event}\n')
         self.close()
+        
         return None
 
     def get_connection(self):
         '''Return connection'''
+        
         return self._conn
     
     def get_cursor(self):
         '''Return cursor'''
+        
         return self._cur
     
     def create_datatables(self):
@@ -204,13 +400,20 @@ class WLCB_DB:
 
         # Get details for event log
         eventtime = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
-        event = (f'Empty datatables created {eventtime}')
+        event = (f'Created empty datatables, {eventtime}')
         self.append_event_log(event)
         print(f'{event}\n')
+        
         return None
     
     def update_event_log_datatable(self, time, event_type):
-        '''Append event log datatable'''
+        '''Append event log datatable
+        Args:
+            time (str) : time of event
+            event_type (str) : event description
+        Returns:
+            None
+        '''
         conn = self._conn
         cur = self._cur
 
@@ -218,4 +421,287 @@ class WLCB_DB:
 
         # Commit changes
         conn.commit()
+        
+        return None
+    
+    def insert_data(self, files):
+        '''Read datafile, parse data, insert data into database, log event
+        Args:
+            files (dict, {file name : (file path, license_type, sales_type, sales_month, sales_year)}) :
+                tuple of file paths and file information keyed to file names
+            Returns:
+                None
+        '''
+        conn = self._conn
+        cur = self._cur
+        time.sleep(1)
+        eventtime = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
+        event_type = 'inserted'
+        self.update_event_log_datatable(eventtime, event_type)
+
+        print(f'INSERTING LICENSE DATA')
+
+        # Initialize variables
+        file_count = 0
+        line_count = 0
+        error_count = 0
+        license_count = 0
+        sales_count = 0
+        reg_exp = {}
+        license_files = []
+        sales_files = []
+        #time = self.get_eventtime()
+        
+        cur.execute('SELECT id FROM event_log WHERE time = ?', (eventtime,))
+        time_id = cur.fetchone()[0]
+
+        # Sort licenses and sales files before parsing
+        for file in files:
+            if not files[file][1]:
+                sales_files.append(files[file])
+            else:
+                license_files.append(files[file])
+
+        # Text to ignore
+        reg_exp = {'ignore' : ['LICENSE TYPE','License #,Licensee,Address,City,State,Zip']}
+
+        # Read license files, parse data, insert into database
+        for file in license_files:
+            print(f'READING: {file[0]}')
+            license_type = None # Reset value each loop
+            fhand = open(file[0])
+            license_type = file[1]
+            file_count += 1
+
+            # Insert and commit licence type
+            cur.execute('''INSERT OR IGNORE INTO license_types (license_type, created) VALUES (?, ?)''', (license_type, time_id))
+            cur.execute('SELECT id FROM license_types WHERE license_type = ?', (license_type,))
+            license_type_id = cur.fetchone()[0]
+            conn.commit()
+
+            for line in fhand:
+                line_count += 1
+                line = line.strip()
+                license = None  # Reset values each loop
+                name = None
+                address = None
+                city = None
+                state = None
+                zc = None
+                if check_row(reg_exp, line, 'ignore') == True:
+                    continue
+                try:
+                    #Parse license text
+                    p_line = parse_license_data(line)
+                    license = p_line[0]
+                    name = p_line[1]
+                    address = p_line[2]
+                    city = p_line[3]
+                    state = p_line[4]
+                    zc = p_line[5]
+
+                    # Insert parsed text into database
+                    # Insert name
+                    cur.execute('''INSERT OR IGNORE INTO names (name, created) VALUES (?, ?)''', (name, time_id))
+                    cur.execute('SELECT id FROM names WHERE name = ?', (name,))
+                    name_id = cur.fetchone()[0]
+                    # Insert address
+                    cur.execute('''INSERT OR IGNORE INTO addresses (address, created) VALUES (?, ?)''', (address, time_id))
+                    cur.execute('SELECT id FROM addresses WHERE address = ?', (address,))
+                    address_id = cur.fetchone()[0]
+                    # Insert city
+                    cur.execute('''INSERT OR IGNORE INTO cities (city, created) VALUES (?, ?)''', (city, time_id))
+                    cur.execute('SELECT id FROM cities WHERE city = ?', (city,))
+                    city_id = cur.fetchone()[0]
+                    # Insert state
+                    cur.execute('''INSERT OR IGNORE INTO states (state, created) VALUES (?, ?)''', (state, time_id))
+                    cur.execute('SELECT id FROM states WHERE state = ?', (state,))
+                    state_id = cur.fetchone()[0]
+                    # Insert zipcode
+                    cur.execute('''INSERT OR IGNORE INTO zipcodes (zip, created) VALUES (?, ?)''', (zc, time_id))
+                    cur.execute('SELECT id FROM zipcodes WHERE zip = ?', (zc,))
+                    zip_id = cur.fetchone()[0]
+                    # Insert license and foreign keys
+                    cur.execute('''INSERT OR IGNORE INTO licenses 
+                                (license, license_type_id, name_id, address_id, city_id, state_id, zip_id, created) 
+                                VALUES ( ?, ?, ?, ?, ?, ?, ?, ?)''', 
+                                (license, license_type_id, name_id, address_id, city_id, state_id, zip_id, time_id))
+                    
+                    # Increment license count
+                    license_count += 1
+
+                    # Commit to database every 10 lines
+                    if license_count % 10 == 0:
+                        conn.commit()
+                
+                except Exception as e:
+                    error_count += 1
+                    print(f'\nLICENSE PARSE or INSERT ERROR:\n{line}\n{e}\n')
+                    continue
+
+            # Commit to database before loading next file
+            conn.commit()
+
+            # Print running total of results
+            print(f'LICENSE COUNT: {license_count}\n')
+
+        print(f'INSERTING SALES DATA')
+
+        line = None # Clear variable
+
+        # Text to keep or ignore while parsing beer and wine sales data
+        reg_exp = {'keep' : ['State Brewery Trade Name', 'State Winery Trade Name', 'Authorized Rep COA Trade Name'],
+                   'ignore' : ['WASHINGTON STATE LIQUOR', '^OLYMPIA, WA 98504', '^REPORT OF NET BEER SALES', '^NET WINE SALES TO', 
+                               '^IN THE STATE OF WASHINGTON', '^STATED IN', '^Over 60,000 Barrels', '^60,000 Barrels & Under', 
+                               '^cider liters', '^14% & Under', '^Over 14%', '^Total ', '^DATE:', '^NOTE:', '^[A-Z][a-z]']}
+        
+        # Read sales files, parse data, insert into database
+        for file in sales_files:
+            print(f'READING: {file[0]}')
+            m = None
+            y = None
+            seller_type = None
+            seller = None
+            beer = False
+            wine = False
+            fhand = open(file[0])
+            file_count += 1
+            sales_type = file[2]
+            if sales_type == 'BEER': beer = True
+            if sales_type == 'WINE': wine = True
+            m = file[3]
+            y = file[4]
+            
+            # Insert and commit month and year
+            cur.execute('''INSERT OR IGNORE INTO month (month, created) VALUES (?, ?)''', (m, time_id))
+            cur.execute('''INSERT OR IGNORE INTO year (year, created) VALUES (?, ?)''', (y, time_id))
+            conn.commit()
+
+            # Parse and insert beer sales data
+            if beer == True:
+                name = None
+                seller_type = None
+                seller = None
+                p_sales = []
+                try:
+                    # Parse sales data
+                    p_sales = parse_sales_data(fhand, beer, wine, line_count, sales_count, seller_type, seller, reg_exp, error_count)
+                    for sale in p_sales:
+                        name = sale[0]
+                        seller_type = sale[1]
+                        values = sale[2]
+                        sales_count = sale[3]
+                        line_count = sale[4]
+                        error_count = sale[5]
+                    
+                        # Insert sales data in database
+                        if name != None and len(values) == 3:
+                            # Insert name
+                            cur.execute('''INSERT OR IGNORE INTO names (name, created) VALUES (?, ?)''', (name, time_id))
+                            # Insert seller_type
+                            cur.execute('''INSERT OR IGNORE INTO seller_types (seller_type, created) VALUES (?, ?)''', (seller_type, time_id))
+                            # Get name_id
+                            cur.execute('SELECT id FROM names WHERE name = ?', (name,))
+                            name_id = cur.fetchone()[0]
+                            # Get seller_type_id
+                            cur.execute('SELECT id FROM seller_types WHERE seller_type = ?', (seller_type,))
+                            seller_type_id = cur.fetchone()[0]
+                            # Get month_id
+                            cur.execute('SELECT id FROM month WHERE month = ?', (m,))
+                            month_id = cur.fetchone()[0]
+                            # Get year_id
+                            cur.execute('SELECT id FROM year WHERE year = ?', (y,))
+                            year_id = cur.fetchone()[0]
+                            # Insert beer sales data and foreign keys 
+                            cur.execute('''INSERT OR IGNORE INTO beer_sales (name_id, seller_type_id, month_id, year_id, 
+                                        over_60k_barrels, under_60k_barrels, total_beer_barrels, created) VALUES (?, ?, ?, ?, ?, ?, ?, ?)''', 
+                                        (name_id, seller_type_id, month_id, year_id, values[0], values[1], values[2], time_id))
+                
+                            # Commit to database every 10 entries
+                            if sales_count % 10 == 0:
+                                conn.commit()
+
+                except Exception as e:
+                    error_count += 1
+                    print(f'\nSALES PARSE or INSERT ERROR:\n{sale}\n{e}\n')
+                    continue
+
+            # Parse and insert wine & cider sales data
+            if wine == True:
+                name = None
+                seller_type = None
+                seller = None
+                p_sales = []
+                try:
+                    # Parse sales data
+                    p_sales = parse_sales_data(fhand, beer, wine, line_count, sales_count, seller_type, seller, reg_exp, error_count)
+                    for sale in p_sales:
+                        name = sale[0]
+                        seller_type = sale[1]
+                        values = sale[2]
+                        sales_count = sale[3]
+                        line_count = sale[4]
+                        error_count = sale[5]
+
+                        # Insert sales data in database
+                        if name != None and len(values) == 4:
+                            cider_total = values[0]
+                            wine_total = values[1] + values[2]
+                            # Insert name
+                            cur.execute('''INSERT OR IGNORE INTO names (name, created) VALUES (?, ?)''', (name, time_id))
+                            # Insert seller_type
+                            cur.execute('''INSERT OR IGNORE INTO seller_types (seller_type, created) VALUES (?, ?)''', (seller_type, time_id))
+                            # Get name_id
+                            cur.execute('SELECT id FROM names WHERE name = ?', (name,))
+                            name_id = cur.fetchone()[0]
+                            # Get seller_type_id
+                            cur.execute('SELECT id FROM seller_types WHERE seller_type = ?', (seller_type,))
+                            seller_type_id = cur.fetchone()[0]
+                            # Get month_id
+                            cur.execute('SELECT id FROM month WHERE month = ?', (m,))
+                            month_id = cur.fetchone()[0]
+                            # Get year_id
+                            cur.execute('SELECT id FROM year WHERE year = ?', (y,))
+                            year_id = cur.fetchone()[0]
+                            
+                            # Insert wine sales data and foreign keys 
+                            if values[1] != 0.00 or values[2] != 0.00:
+                                cur.execute('''INSERT OR IGNORE INTO wine_sales (name_id, seller_type_id, month_id, year_id, 
+                                            under_14abv, over_14abv, total_wine_liters, created) VALUES (?, ?, ?, ?, ?, ?, ?, ?)''', 
+                                            (name_id, seller_type_id, month_id, year_id, values[1], values[2], wine_total, time_id))
+                            
+                            # Insert cider sales data and foreign keys 
+                            if values[0] != 0.00:
+                                cur.execute('''INSERT OR IGNORE INTO cider_sales (name_id, seller_type_id, month_id, year_id, 
+                                            total_cider_liters, created) VALUES (?, ?, ?, ?, ?, ?)''', 
+                                            (name_id, seller_type_id, month_id, year_id, cider_total, time_id))
+                                
+                            # Commit to database every 10 entries
+                            if sales_count % 10 == 0:
+                                conn.commit()
+
+                except Exception as e:
+                    error_count += 1
+                    print(f'\nSALES PARSE or INSERT ERROR:\n{sale}\n{e}\n')
+                    continue
+
+            # Commit to database before loading next file
+            conn.commit()
+
+        # Commit and close connection to database
+        conn.commit()
+        conn.close()
+
+        # Append event log
+        #self.append_event_log(action = 'Insert Data,', details = (f'{line_count} Lines,'))
+        self.append_event_log(f'Inserted {line_count} lines, {eventtime}')
+
+        # Print Summary
+        print('\n*** INSERT DATA COMPLETE ***\n')
+        print(f'TOTAL FILE COUNT: {file_count}')
+        print(f'TOTAL LINE COUNT: {line_count}')
+        print(f'TOTAL LICENSE COUNT: {license_count}')
+        print(f'TOTAL SALES COUNT: {sales_count}')
+        print(f'TOTAL ERROR COUNT: {error_count}')
+
         return None
