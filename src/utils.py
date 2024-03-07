@@ -245,6 +245,7 @@ def parse_sales_data(fhand, beer, wine, line_count, sales_count, seller_type, se
                 name = None # Reset loop variables for next iteration
                 values = []
             if re.search('[.][0-9][0-9]$', line) and name == None: continue
+            if re.search('[a-z][.]', line) and name == None: continue
             elif name == None:
                 print('PARSE ERROR:', line)
                 error_count += 1
@@ -403,7 +404,7 @@ class WLCB_DB:
         event = (f'Created empty datatables, {eventtime}')
         self.append_event_log(event)
         print(f'{event}\n')
-        
+
         return None
     
     def update_event_log_datatable(self, time, event_type):
@@ -450,10 +451,14 @@ class WLCB_DB:
         reg_exp = {}
         license_files = []
         sales_files = []
-        #time = self.get_eventtime()
         
+        # Get time_id
         cur.execute('SELECT id FROM event_log WHERE time = ?', (eventtime,))
         time_id = cur.fetchone()[0]
+
+        # Populate month table
+        for m in ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']:
+            cur.execute('''INSERT OR IGNORE INTO month (month, created) VALUES (?, ?)''', (m, time_id))
 
         # Sort licenses and sales files before parsing
         for file in files:
@@ -570,10 +575,12 @@ class WLCB_DB:
             if sales_type == 'BEER': beer = True
             if sales_type == 'WINE': wine = True
             m = file[3]
+            if len(m) > 3: 
+                m = m[:3]
             y = file[4]
             
             # Insert and commit month and year
-            cur.execute('''INSERT OR IGNORE INTO month (month, created) VALUES (?, ?)''', (m, time_id))
+            #cur.execute('''INSERT OR IGNORE INTO month (month, created) VALUES (?, ?)''', (m, time_id))
             cur.execute('''INSERT OR IGNORE INTO year (year, created) VALUES (?, ?)''', (y, time_id))
             conn.commit()
 
