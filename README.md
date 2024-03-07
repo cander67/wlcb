@@ -7,12 +7,14 @@ Clone the repository from the terminal using the following command: `git clone h
 ### Prerequisites
 Local deployment can be accomplished by creating a virtual environment using Python 3.11 and installing the necessary dependencies as described in the next section.
 
+- *Optional* [DB Browser for SQLite](https://sqlitebrowser.org/)
+
 ### Installing
 - Install dependencies from the terminal using the following command: `pip install -r requirements.txt`
 
 ## Built With
 - Python
-- SQLite3
+- SQLite
 
 ## Contributing
 Contributions and suggestions are welcome and may be submitted by forking this project and submitting a pull request through GitHub.
