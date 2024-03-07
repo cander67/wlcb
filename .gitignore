@@ -243,5 +243,6 @@ pip-selfcheck.json
 ### General ###
 data/
 *.sqlite
+*_log.txt
 
 # End of https://www.toptal.com/developers/gitignore/api/visualstudiocode,macos,git,jupyternotebooks,django,python,dotenv,venv
